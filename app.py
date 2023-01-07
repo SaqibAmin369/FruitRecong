@@ -1,5 +1,6 @@
 # save this as app.py
-from flask import Flask, escape, request, render_template
+from flask import Flask, escape, request, render_template, jsonify
+from flask_cors import cross_origin
 import os
 import numpy as np
 import tensorflow as tf
@@ -22,9 +23,10 @@ class_name = ['Apples',
 app = Flask(__name__)
 
 
-@app.route('/')
+@app.route('/', methods=['GET'])
+@cross_origin()
 def home():
-    return render_template("index.html")
+    return jsonify(result='welcome...')  # render_template("index.html")
 
 
 @app.route('/about')
@@ -37,15 +39,18 @@ def contact():
     return render_template("contact.html")
 
 
-@app.route('/prediction', methods=['GET', 'POST'])
+@app.route('/api/v1/prediction', methods=['GET', 'POST'])
 def prediction():
     if request.method == 'POST':
-        f = request.files['fruit']
-        filename = f.filename
+        f = request.files['fruit'].read()
+        filename = request.form.get('filename')
         target = os.path.join(APP_ROOT, 'images/')
         # print(target)
         des = "/".join([target, filename])
-        f.save(des)
+        # f.save(des)
+
+        with open(des, 'wb') as file:
+            file.write(f)
 
         # test_image = Image.open('images\\'+filename)
         test_image = image.load_img(
@@ -61,10 +66,11 @@ def prediction():
         confidence = round(np.max(prediction[0])*100)
         # print(confidence)
 
-        return render_template("prediction.html", confidence="Accuracy:   "+str(confidence) + "%", prediction="FruitName:  "+str(predicted_class))
+        return jsonify(confidence=confidence,
+                       prediction=prediction)
 
     else:
-        return render_template("prediction.html")
+        return jsonify(result='coudnt fetch api results', success=False)
 
 
 if __name__ == '__main__':
