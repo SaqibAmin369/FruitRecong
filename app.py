@@ -1,5 +1,7 @@
 # save this as app.py
 from flask import Flask, escape, request, render_template, jsonify
+import json
+from json import JSONEncoder
 from flask_cors import cross_origin
 import os
 import numpy as np
@@ -13,6 +15,7 @@ APP_ROOT = os.path.dirname(os.path.abspath(__file__))
 # model = load model("models/fruits.h5")
 model = load_model("models/1")
 
+
 class_name = ['Apples',
               'Banana',
               'Oranges',
@@ -20,6 +23,7 @@ class_name = ['Apples',
               'Banana',
               'Oranges']
 
+NF = "Banana"
 app = Flask(__name__)
 
 
@@ -39,7 +43,15 @@ def contact():
     return render_template("contact.html")
 
 
+class NumpyArrayEncoder(JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return JSONEncoder.default(self, obj)
+
+
 @app.route('/api/v1/prediction', methods=['GET', 'POST'])
+@cross_origin()
 def prediction():
     if request.method == 'POST':
         f = request.files['fruit'].read()
@@ -62,12 +74,20 @@ def prediction():
         # print(prediction)
 
         predicted_class = class_name[np.argmax(prediction[0])]
+
         # print(predicted_class)
         confidence = round(np.max(prediction[0])*100)
         # print(confidence)
 
+        if predicted_class == NF:
+            predicted_class = "Not a Fruit"
+            confidence = 0
+
+        obj_predict = json.dumps(prediction, cls=NumpyArrayEncoder)
+
         return jsonify(confidence=confidence,
-                       prediction=prediction)
+                       predicted_class=predicted_class,
+                       prediction=obj_predict)
 
     else:
         return jsonify(result='coudnt fetch api results', success=False)
